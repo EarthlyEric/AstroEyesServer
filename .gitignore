@@ -1,0 +1,69 @@
+# Python 編譯檔案
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C 擴充模組
+*.so
+
+# 專案打包/發佈
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# 安裝記錄
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 測試/覆蓋率
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+
+# 環境設定
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE 設定
+.idea/
+.vscode/
+.spyderproject
+.spyproject
+.ropeproject
+
+# 文件產生
+docs/_build/
+site/
+
