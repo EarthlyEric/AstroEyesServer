@@ -55,7 +55,12 @@ async def update_user(request: Request, data: updateUser, user_uuid: str = Depen
 @user.post("/updateUserPassword")
 @limiter.limit("1/minute")
 async def update_user_password(request: Request, data: updateUserPassword, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
-    pass
+    result = await db.execute(select(User).where(User.uuid == user_uuid))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    
     
 @user.get("/getHost")
 @limiter.limit("10/minute")
