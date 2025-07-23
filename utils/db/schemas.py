@@ -37,6 +37,8 @@ class UserAccessToken(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_uuid = Column(String(36), ForeignKey("users.uuid"), nullable=False)
     access_token = Column(String(256), unique=True, nullable=False)
+    device_id = Column(String(64), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
 
     user = relationship("User", back_populates="access_tokens")

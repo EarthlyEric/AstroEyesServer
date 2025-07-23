@@ -5,8 +5,8 @@ class Config:
         with open("version") as file:
             self.version = file.read().strip()
         self.environment = os.getenv("ENVIRONMENT", "production")
-        self.secret_key = os.getenv("SECRET_KEY")
-        
+        self.secret_key = str(os.getenv("SECRET_KEY"))
+
         self.redis_host = os.getenv("CACHE_HOST", "localhost")
         self.redis_port = int(os.getenv("CACHE_PORT", 6379))
         

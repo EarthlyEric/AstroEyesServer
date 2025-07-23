@@ -4,10 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from redis.asyncio import Redis
 from passlib.context import CryptContext
+from middleware.limiter import limiter
 from utils.jwt import createJWTToken
 from utils.db import getSession
 from utils.db.schemas import User, UserAccessToken
-from middleware.limiter import limiter
 from models.auth import UserLogin, UserRegister
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha512"], deprecated="auto")
@@ -28,16 +28,43 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
     Returns:
         A JSON object containing a success message, user UUID, and access token.
     """
-    result = await db.execute(select(User).where(User.username == data.username))
-    db_user = result.scalar_one_or_none()
-    if not db_user:
+    result = await db.execute(
+        select(User).where(
+            User.username == data.username
+            )
+        )
+    user = result.scalar_one_or_none()
+    
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    if data.password == db_user.password:
-        access_token = createJWTToken(db_user.uuid, expire_days=7)
+    if data.password == user.password:
+        result = await db.execute(
+            select(UserAccessToken).where(
+                UserAccessToken.user_uuid == user.uuid,
+                UserAccessToken.device_id == data.device_id
+            )
+        )
+        existing_token = result.scalar_one_or_none()
+        
+        if existing_token and existing_token.expires_at > datetime.now(timezone.utc):
+            return {
+                "message": "Login successful",
+                "user_uuid": user.uuid,
+                "access_token": existing_token.access_token,
+                "device_id": existing_token.device_id,
+                "created_at": existing_token.created_at.isoformat(),
+                "expires_at": existing_token.expires_at.isoformat()
+            }
+        else:
+            await db.delete(existing_token)
+            await db.commit()
+            
+        access_token = createJWTToken(user.uuid, data.device_id, expire_days=7)
         new_access_token = UserAccessToken(
-            user_uuid=db_user.uuid,
+            user_uuid=user.uuid,
             access_token=access_token,
+            device_id=data.device_id,
             expires_at=datetime.now(timezone.utc) + timedelta(days=7)
         )
         db.add(new_access_token)
@@ -48,11 +75,12 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
             await db.rollback()
             raise HTTPException(status_code=400, detail=f"Error on creating access token: {str(e)}")
         
-        
         return {
             "message": "Login successful",
-            "user_uuid": db_user.uuid,
+            "user_uuid": user.uuid,
             "access_token": access_token,
+            "device_id": new_access_token.device_id,
+            "created_at": new_access_token.created_at.isoformat(),
             "expires_at": new_access_token.expires_at.isoformat()
         }
     else:
@@ -62,13 +90,13 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
 @limiter.limit("3/minute")
 async def register(request: Request, data: UserRegister, db: AsyncSession = Depends(getSession)):
     """
-    Endpoint for user registration. \n
-    Parameters: \n
+    Endpoint for user registration. 
+    Parameters: 
         username: 8-32 characters, allows only letters, numbers, and underscores.
         password: 8-128 characters, allows letters, numbers, and common special characters.
         display_name: 1-32 characters.
         invite_code: Optional invite code for registration.
-    Returns: \n
+    Returns: 
         A JSON object containing a success message.
     """
     
@@ -92,10 +120,18 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
 @limiter.limit("5/minute")
 async def cancel_accesstoken(request: Request, access_token: str, db: AsyncSession = Depends(getSession), ):
     """
-    Endpoint for user logout.
+    Endpoint for user cancelling an access token.
+    Parameters:
+        access_token: The access token to be cancelled.
+    Returns:
+        A JSON object containing a success message if the access token is cancelled successfully.
     """
     try:
-        result = await db.execute(select(UserAccessToken).where(UserAccessToken.access_token == access_token))
+        result = await db.execute(
+            select(UserAccessToken).where(
+                UserAccessToken.access_token == access_token
+                )
+            )
         access_token_record = result.scalar_one_or_none()
         
         if not access_token_record:

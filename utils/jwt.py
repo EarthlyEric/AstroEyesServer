@@ -15,11 +15,12 @@ ALGORITHM = "HS256"
 
 security = HTTPBearer()
 
-def createJWTToken(uuid: str, expire_days: int) -> str:
+def createJWTToken(uuid: str, device_id: str, expire_days: int) -> str:
     payload = {
         "user_uuid": uuid,
-        "exp": datetime.now(timezone.utc) + timedelta(days=expire_days),
-        "iat": datetime.now(timezone.utc)
+        "device_id": device_id,
+        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(timezone.utc) + timedelta(days=expire_days)
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 

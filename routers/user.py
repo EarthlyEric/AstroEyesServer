@@ -18,6 +18,10 @@ user = APIRouter(
 async def get_user(request: Request, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
     """
     Endpoint to get User information
+    Parameters:
+        No parameters required, user UUID is obtained from JWT token.
+    Returns:
+        A JSON object containing user information such as username, display name, UUID, avatar URL,
     """
     result = await db.execute(
         select(User).where(User.uuid == user_uuid)
@@ -27,20 +31,27 @@ async def get_user(request: Request, user_uuid: str = Depends(getUserUUID), db: 
         raise HTTPException(status_code=404, detail="User not found")
  
     return {
+        "uuid": db_user.uuid,
         "username": db_user.username,
         "display_name": db_user.display_name,
-        "uuid": db_user.uuid,
         "avatar_url": db_user.avatar_url,
-        "lang_code": db_user.lang_code,
-        "timezone": db_user.timezone,
         "is_online": db_user.is_online,
         "last_online_at": db_user.last_online_at.isoformat(),
         "registered_at": db_user.registered_at.isoformat(),
     }
 
-@user.post("updateUser")
+@user.post("/updateUser")
 @limiter.limit("5/minute")
 async def update_user(request: Request, data: updateUser, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
+    """
+    Endpoint to update User information
+    Parameters:
+        display_name: Optional, 1-32 characters, the new display name for the user
+    Returns:
+        A JSON object containing a success message and the updated display name if it was changed.
+    Raises:
+        HTTPException: If the user is not found or if the display name is not provided.
+    """
     result = await db.execute(select(User).where(User.uuid == user_uuid))
     user = result.scalar_one_or_none()
     if not user:
@@ -60,11 +71,14 @@ async def update_user_password(request: Request, data: updateUserPassword, user_
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    if data.old_password and data.new_password and data.old_password.strip() and data.new_password.strip():
+        if user.password != data.old_password:            
+            raise HTTPException(status_code=400, detail="Old password is incorrect")
+        
+        user.password = data.new_password
+        await db.commit()
+        return {"message": "Password updated successfully"}
     
-    
-@user.get("/getHost")
-@limiter.limit("10/minute")
-async def get_host(request: Request):
-    host = request.headers.get("host")
-    return {"host": host}
+    raise HTTPException(status_code=400, detail="Invalid request data")
+
 

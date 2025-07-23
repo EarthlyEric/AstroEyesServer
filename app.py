@@ -5,6 +5,7 @@ from utils.config import config
 from middleware.limiter import limiter
 from routers.auth import auth
 from routers.user import user
+from routers.utils import utils
 
 app = FastAPI(
     title="AstroEyes API",
@@ -22,4 +23,5 @@ app.get("/")(lambda: {"message": "Welcome to AstroEyes API"})
 
 app.include_router(auth)
 app.include_router(user)
+app.include_router(utils)
 
