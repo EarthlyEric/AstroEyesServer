@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from utils.config import config
 from utils.db import getSession
 from utils.db.schemas import UserAccessToken
-from utils.redis import getRedisClient
+
 
 SECRET_KEY = config.secret_key
 ALGORITHM = "HS256"

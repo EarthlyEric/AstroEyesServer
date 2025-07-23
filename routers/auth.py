@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from redis.asyncio import Redis
 from passlib.context import CryptContext
-from utils.redis import getRedisClient
 from utils.jwt import createJWTToken
 from utils.db import getSession
 from utils.db.schemas import User, UserAccessToken
@@ -20,7 +19,7 @@ auth = APIRouter(
 
 @auth.post("/login")
 @limiter.limit("5/minute")
-async def login(request: Request, data: UserLogin, redis: Redis = Depends(getRedisClient), db: AsyncSession = Depends(getSession)):
+async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(getSession)):
     """
     Endpoint for user login.
     Parameters:
@@ -49,7 +48,6 @@ async def login(request: Request, data: UserLogin, redis: Redis = Depends(getRed
             await db.rollback()
             raise HTTPException(status_code=400, detail=f"Error on creating access token: {str(e)}")
         
-        await redis.set(access_token, db_user.uuid, ex=86400)
         
         return {
             "message": "Login successful",
@@ -92,7 +90,7 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
 
 @auth.post("/cancel-accesstoken")
 @limiter.limit("5/minute")
-async def cancel_accesstoken(request: Request, access_token: str,  redis: Redis = Depends(getRedisClient), db: AsyncSession = Depends(getSession), ):
+async def cancel_accesstoken(request: Request, access_token: str, db: AsyncSession = Depends(getSession), ):
     """
     Endpoint for user logout.
     """
@@ -106,7 +104,6 @@ async def cancel_accesstoken(request: Request, access_token: str,  redis: Redis 
         await db.delete(access_token_record)
         await db.commit()
         
-        await redis.delete(access_token)
         return {"message": "Access token cancelled successfully"}
     except Exception as e:
         await db.rollback()
