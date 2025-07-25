@@ -10,16 +10,17 @@ from models.user import updateUser, updateUserPassword
  
 user = APIRouter(
     prefix="/user",
-    tags=["user"],
+    tags=["User"],
 )
 
 @user.get("/getUser")
 @limiter.limit("10/minute")
 async def get_user(request: Request, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
     """
-    Endpoint to get User information
+    Endpoint to get User information.
+    Authentication is required, user UUID is obtained from JWT token in header.
     Parameters:
-        No parameters required, user UUID is obtained from JWT token.
+        No parameters required, user UUID is obtained from JWT token in header.
     Returns:
         A JSON object containing user information such as username, display name, UUID, avatar URL,
     """
@@ -44,7 +45,8 @@ async def get_user(request: Request, user_uuid: str = Depends(getUserUUID), db: 
 @limiter.limit("5/minute")
 async def update_user(request: Request, data: updateUser, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
     """
-    Endpoint to update User information
+    Endpoint to update User information.
+    Authentication is required, user UUID is obtained from JWT token in header.
     Parameters:
         display_name: Optional, 1-32 characters, the new display name for the user
     Returns:
@@ -66,6 +68,17 @@ async def update_user(request: Request, data: updateUser, user_uuid: str = Depen
 @user.post("/updateUserPassword")
 @limiter.limit("1/minute")
 async def update_user_password(request: Request, data: updateUserPassword, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
+    """
+    Endpoint to update User password.
+    Authentication is required, user UUID is obtained from JWT token in header.
+    Parameters:
+        old_password: The current password of the user.
+        new_password: The new password for the user, must be 8-128 characters long and can include letters, numbers, and common special characters.
+    Returns:
+        A JSON object containing a success message if the password is updated successfully.
+    Raises:
+        HTTPException: If the user is not found, if the old password is incorrect, or if the new password is not provided.
+    """
     result = await db.execute(select(User).where(User.uuid == user_uuid))
     user = result.scalar_one_or_none()
     if not user:
