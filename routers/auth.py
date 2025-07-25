@@ -14,7 +14,7 @@ pwd_context = CryptContext(schemes=["pbkdf2_sha512"], deprecated="auto")
 
 auth = APIRouter(
     prefix="/auth",
-    tags=["auth"],
+    tags=["Authentication"],
 )
 
 @auth.post("/login")
@@ -23,11 +23,14 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
     """
     Endpoint for user login.
     Parameters:
+        type: application/json
         username: 8-32 characters, allows only letters, numbers, and underscores.
         password: 8-128 characters, allows letters, numbers, and common special characters.
+        device_id: Unique identifier for the user's device, such as Android Device ID (16), ios UUID(40).
     Returns:
         A JSON object containing a success message, user UUID, and access token.
     """
+
     result = await db.execute(
         select(User).where(
             User.username == data.username
@@ -56,10 +59,14 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
                 "created_at": existing_token.created_at.isoformat(),
                 "expires_at": existing_token.expires_at.isoformat()
             }
-        else:
-            await db.delete(existing_token)
-            await db.commit()
-            
+        elif existing_token:
+            try:
+                await db.delete(existing_token)
+                await db.commit()
+            except Exception as e:
+                await db.rollback()
+                raise HTTPException(status_code=400, detail=f"Error on deleting expired access token: {str(e)}")
+
         access_token = createJWTToken(user.uuid, data.device_id, expire_days=7)
         new_access_token = UserAccessToken(
             user_uuid=user.uuid,
@@ -92,6 +99,7 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
     """
     Endpoint for user registration. 
     Parameters: 
+        type: application/json
         username: 8-32 characters, allows only letters, numbers, and underscores.
         password: 8-128 characters, allows letters, numbers, and common special characters.
         display_name: 1-32 characters.
@@ -114,34 +122,3 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
     
     return {"message": "Registration successful", "uuid": new_user.uuid}
-    
-
-@auth.post("/cancel-accesstoken")
-@limiter.limit("5/minute")
-async def cancel_accesstoken(request: Request, access_token: str, db: AsyncSession = Depends(getSession), ):
-    """
-    Endpoint for user cancelling an access token.
-    Parameters:
-        access_token: The access token to be cancelled.
-    Returns:
-        A JSON object containing a success message if the access token is cancelled successfully.
-    """
-    try:
-        result = await db.execute(
-            select(UserAccessToken).where(
-                UserAccessToken.access_token == access_token
-                )
-            )
-        access_token_record = result.scalar_one_or_none()
-        
-        if not access_token_record:
-            raise HTTPException(status_code=404, detail="Access token not found")
-        
-        await db.delete(access_token_record)
-        await db.commit()
-        
-        return {"message": "Access token cancelled successfully"}
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail=f"Error cancelling access token: {str(e)}")
-

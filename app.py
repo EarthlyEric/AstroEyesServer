@@ -3,9 +3,11 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from utils.config import config
 from middleware.limiter import limiter
+
 from routers.auth import auth
 from routers.user import user
 from routers.utils import utils
+from routers.token import token
 
 app = FastAPI(
     title="AstroEyes API",
@@ -22,6 +24,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.get("/")(lambda: {"message": "Welcome to AstroEyes API"})
 
 app.include_router(auth)
+app.include_router(token)
 app.include_router(user)
 app.include_router(utils)
 
