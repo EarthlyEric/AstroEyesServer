@@ -23,6 +23,6 @@ async def getSession():
             await session.close()
             
 async def init_db():
+    from utils.db.schemas import Base
     async with engine.begin() as conn:
-        from utils.db.schemas import Base
-        await conn.run_sync(Base.metadata.create_all())
+        await conn.run_sync(Base.metadata.create_all) 
