@@ -15,6 +15,8 @@ token = APIRouter(
 async def cancel_accesstoken(request: Request, access_token: str, db: AsyncSession = Depends(getSession), ):
     """
     Endpoint for user cancelling an access token.
+    Limits:
+        - 5 requests per minute.
     Parameters:
         access_token: The access token to be cancelled.
     Returns:
@@ -26,10 +28,11 @@ async def cancel_accesstoken(request: Request, access_token: str, db: AsyncSessi
                 )
             )
     access_token_record = result.scalar_one_or_none()
+    
+    if not access_token_record:
+        raise HTTPException(status_code=404, detail="Access token is invalid, Maybe already cancelled or expired. Please login again to get a new access token")
+
     try:
-        if not access_token_record:
-            raise HTTPException(status_code=404, detail="Access token not found")
-        
         await db.delete(access_token_record)
         await db.commit()
         
@@ -43,9 +46,20 @@ async def cancel_accesstoken(request: Request, access_token: str, db: AsyncSessi
 async def refresh_accesstoken(request: Request, access_token: str, db: AsyncSession = Depends(getSession)):
     """
     Endpoint for user refreshing an access token.
+    Limits:
+        - 5 requests per minute.
     Parameters:
         access_token: The access token to be refreshed.
     Returns:
         A JSON object containing a new access token if the refresh is successful.
     """
-    pass
+    result = await db.execute(
+            select(UserAccessToken).where(
+                UserAccessToken.access_token == access_token
+                )
+            )
+    access_token = result.scalar_one_or_none()
+    if not access_token:
+        raise HTTPException(status_code=404, detail="Access token is invalid, Maybe already cancelled or expired. Please login again to get a new access token")
+
+    

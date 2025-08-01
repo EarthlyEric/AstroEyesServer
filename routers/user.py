@@ -19,6 +19,8 @@ async def get_user(request: Request, user_uuid: str = Depends(getUserUUID), db: 
     """
     Endpoint to get User information.
     Authentication is required, user UUID is obtained from JWT token in header.
+    Limits:
+        - 10 requests per minute.
     Parameters:
         No parameters required, user UUID is obtained from JWT token in header.
     Returns:
@@ -42,11 +44,13 @@ async def get_user(request: Request, user_uuid: str = Depends(getUserUUID), db: 
     }
 
 @user.post("/updateUser")
-@limiter.limit("5/minute")
+@limiter.limit("8/minute")
 async def update_user(request: Request, data: updateUser, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
     """
     Endpoint to update User information.
     Authentication is required, user UUID is obtained from JWT token in header.
+    Limits:
+        - 8 requests per minute.
     Parameters:
         display_name: Optional, 1-32 characters, the new display name for the user
     Returns:
@@ -66,11 +70,13 @@ async def update_user(request: Request, data: updateUser, user_uuid: str = Depen
     
         
 @user.post("/updateUserPassword")
-@limiter.limit("1/minute")
+@limiter.limit("3/minute")
 async def update_user_password(request: Request, data: updateUserPassword, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
     """
     Endpoint to update User password.
     Authentication is required, user UUID is obtained from JWT token in header.
+    Limits:
+        - 3 request per minute.
     Parameters:
         old_password: The current password of the user.
         new_password: The new password for the user, must be 8-128 characters long and can include letters, numbers, and common special characters.

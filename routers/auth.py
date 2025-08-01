@@ -22,6 +22,8 @@ auth = APIRouter(
 async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(getSession)):
     """
     Endpoint for user login.
+    Limits:
+        - 3 requests per minute.
     Parameters:
         type: application/json
         username: 8-32 characters, allows only letters, numbers, and underscores.
@@ -98,6 +100,8 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
 async def register(request: Request, data: UserRegister, db: AsyncSession = Depends(getSession)):
     """
     Endpoint for user registration. 
+    Limits:
+        - 3 requests per minute.
     Parameters: 
         type: application/json
         username: 8-32 characters, allows only letters, numbers, and underscores.
