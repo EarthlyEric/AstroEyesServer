@@ -2,13 +2,12 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from redis.asyncio import Redis
 from passlib.context import CryptContext
 from middleware.limiter import limiter
 from utils.jwt import createJWTToken
 from utils.db import getSession
 from utils.db.schemas import User, UserAccessToken
-from models.auth import UserLogin, UserRegister
+from models.auth import userLogin, userRegister
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha512"], deprecated="auto")
 
@@ -19,7 +18,7 @@ auth = APIRouter(
 
 @auth.post("/login")
 @limiter.limit("5/minute")
-async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(getSession)):
+async def login(request: Request, data: userLogin, db: AsyncSession = Depends(getSession)):
     """
     Endpoint for user login.
     Limits:
@@ -97,7 +96,7 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
 
 @auth.post("/register")
 @limiter.limit("3/minute")
-async def register(request: Request, data: UserRegister, db: AsyncSession = Depends(getSession)):
+async def register(request: Request, data: userRegister, db: AsyncSession = Depends(getSession)):
     """
     Endpoint for user registration. 
     Limits:
@@ -111,6 +110,15 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
     Returns: 
         A JSON object containing a success message.
     """
+    result = await db.execute(
+        select(User).where(
+            User.username == data.username
+        )
+    )
+    user = result.scalar_one_or_none()
+    
+    if user:
+        raise HTTPException(status_code=409, detail="Username already exists")
     
     new_user = User(
         username=data.username,

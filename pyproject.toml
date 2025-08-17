@@ -14,5 +14,4 @@ dependencies = [
     "uvicorn[standard]>=0.35.0",
     "asyncpg>=0.30.0",
     "passlib>=1.7.4",
-    "redis>=6.2.0",
 ]

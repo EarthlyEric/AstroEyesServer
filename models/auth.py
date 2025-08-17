@@ -1,8 +1,7 @@
-import re
 from pydantic import BaseModel, Field, field_validator
 from utils.validator import validate_password_strength
 
-class UserBase(BaseModel):
+class userBase(BaseModel):
     """
     Base model for user authentication.
     Fields:
@@ -15,17 +14,18 @@ class UserBase(BaseModel):
     @field_validator("password")
     def validate_password_strength(cls, v):
         return validate_password_strength(v)
-    
-class UserRegister(UserBase):
+
+class userRegister(userBase):
     """
     Model for user registration.
     Fields:
+        display_name: 1-32 characters, allows letters, numbers, and underscores.
         invite_code: Optional invite code for registration.
     """
     display_name: str = Field(min_length=1, max_length=32)
     invite_code: str | None = None
-    
-class UserLogin(UserBase):
+
+class userLogin(userBase):
     """
     Model for user login.
     Inherits from UserBase.

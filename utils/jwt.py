@@ -2,7 +2,6 @@ import jwt
 from datetime import datetime,timezone, timedelta
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from utils.config import config
