@@ -3,9 +3,9 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from middleware.limiter import limiter
-from utils.db import getSession
+from utils.db import get_session
 from utils.db.schemas import User
-from utils.jwt import getUserUUID
+from utils.jwt import get_user_uuid
 from models.user import updateProfile, updatePassword
  
 user = APIRouter(
@@ -13,9 +13,9 @@ user = APIRouter(
     tags=["User"],
 )
 
-@user.get("/profile")
+@user.get("/me")
 @limiter.limit("10/minute")
-async def get_user(request: Request, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
+async def get_user(request: Request, user_uuid: str = Depends(get_user_uuid), db: AsyncSession = Depends(get_session)):
     """
     Endpoint to get User profile.
     Authentication is required, user UUID is obtained from JWT token in header.
@@ -43,9 +43,9 @@ async def get_user(request: Request, user_uuid: str = Depends(getUserUUID), db: 
         "registered_at": db_user.registered_at.isoformat(),
     }
 
-@user.post("/updateProfile")
+@user.post("/update/profile")
 @limiter.limit("8/minute")
-async def update_user(request: Request, data: updateProfile, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
+async def update_user_profile(request: Request, data: updateProfile, user_uuid: str = Depends(get_user_uuid), db: AsyncSession = Depends(get_session)):
     """
     Endpoint to update User profile.
     Authentication is required, user UUID is obtained from JWT token in header.
@@ -69,9 +69,9 @@ async def update_user(request: Request, data: updateProfile, user_uuid: str = De
         return {"message": "Display name updated successfully", "display_name": user.display_name}
     
         
-@user.post("/updatePassword")
+@user.post("/update/password")
 @limiter.limit("3/minute")
-async def update_user_password(request: Request, data: updatePassword, user_uuid: str = Depends(getUserUUID), db: AsyncSession = Depends(getSession)):
+async def update_user_password(request: Request, data: updatePassword, user_uuid: str = Depends(get_user_uuid), db: AsyncSession = Depends(get_session)):
     """
     Endpoint to update User password.
     Authentication is required, user UUID is obtained from JWT token in header.

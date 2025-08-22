@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from passlib.context import CryptContext
 from middleware.limiter import limiter
-from utils.jwt import createJWTToken
-from utils.db import getSession
-from utils.db.schemas import User, UserAccessToken
+from utils.jwt import create_refresh_token_payload, create_jwt_token
+from utils.db import get_session
+from utils.db.schemas import User, UserRefreshToken
 from models.auth import userLogin, userRegister
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha512"], deprecated="auto")
@@ -18,7 +18,7 @@ auth = APIRouter(
 
 @auth.post("/login")
 @limiter.limit("5/minute")
-async def login(request: Request, data: userLogin, db: AsyncSession = Depends(getSession)):
+async def login(request: Request, data: userLogin, db: AsyncSession = Depends(get_session)):
     """
     Endpoint for user login.
     Limits:
@@ -29,7 +29,7 @@ async def login(request: Request, data: userLogin, db: AsyncSession = Depends(ge
         password: 8-128 characters, allows letters, numbers, and common special characters.
         device_id: Unique identifier for the user's device, such as Android Device ID (16), ios UUID(40).
     Returns:
-        A JSON object containing a success message, user UUID, and access token.
+        A JSON object containing a success message, user UUID, and refresh token.
     """
 
     result = await db.execute(
@@ -44,9 +44,9 @@ async def login(request: Request, data: userLogin, db: AsyncSession = Depends(ge
     
     if data.password == user.password:
         result = await db.execute(
-            select(UserAccessToken).where(
-                UserAccessToken.user_uuid == user.uuid,
-                UserAccessToken.device_id == data.device_id
+            select(UserRefreshToken).where(
+                UserRefreshToken.user_uuid == user.uuid,
+                UserRefreshToken.device_id == data.device_id
             )
         )
         existing_token = result.scalar_one_or_none()
@@ -55,7 +55,7 @@ async def login(request: Request, data: userLogin, db: AsyncSession = Depends(ge
             return {
                 "message": "Login successful",
                 "user_uuid": user.uuid,
-                "access_token": existing_token.access_token,
+                "refresh_token": existing_token.token,
                 "device_id": existing_token.device_id,
                 "created_at": existing_token.created_at.isoformat(),
                 "expires_at": existing_token.expires_at.isoformat()
@@ -68,10 +68,10 @@ async def login(request: Request, data: userLogin, db: AsyncSession = Depends(ge
                 await db.rollback()
                 raise HTTPException(status_code=400, detail=f"Error on deleting expired access token: {str(e)}")
 
-        access_token = createJWTToken(user.uuid, data.device_id, expire_days=7)
-        new_access_token = UserAccessToken(
+        token = create_jwt_token(create_refresh_token_payload(user.uuid, data.device_id))
+        new_access_token = UserRefreshToken(
             user_uuid=user.uuid,
-            access_token=access_token,
+            token=token,
             device_id=data.device_id,
             expires_at=datetime.now(timezone.utc) + timedelta(days=7)
         )
@@ -86,7 +86,7 @@ async def login(request: Request, data: userLogin, db: AsyncSession = Depends(ge
         return {
             "message": "Login successful",
             "user_uuid": user.uuid,
-            "access_token": access_token,
+            "refresh_token": token,
             "device_id": new_access_token.device_id,
             "created_at": new_access_token.created_at.isoformat(),
             "expires_at": new_access_token.expires_at.isoformat()
@@ -96,7 +96,7 @@ async def login(request: Request, data: userLogin, db: AsyncSession = Depends(ge
 
 @auth.post("/register")
 @limiter.limit("3/minute")
-async def register(request: Request, data: userRegister, db: AsyncSession = Depends(getSession)):
+async def register(request: Request, data: userRegister, db: AsyncSession = Depends(get_session)):
     """
     Endpoint for user registration. 
     Limits:

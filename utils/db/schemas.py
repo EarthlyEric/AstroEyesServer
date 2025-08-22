@@ -19,8 +19,8 @@ class User(Base):
     last_online_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     registered_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
 
-    access_tokens = relationship(
-        "UserAccessToken",
+    tokens = relationship(
+        "UserRefreshToken",
         back_populates="user",
         lazy="dynamic",
         cascade="all, delete-orphan"
@@ -32,16 +32,17 @@ class User(Base):
         cascade="all, delete-orphan"
     )
 
-class UserAccessToken(Base):
-    __tablename__ = "user_access_tokens"
+class UserRefreshToken(Base):
+    __tablename__ = "user_tokens"
     id = Column(Integer, primary_key=True, index=True)
+    token_uuid = Column(String(36), unique=True, default=lambda: str(uuid.uuid4()), nullable=False, index=True)
     user_uuid = Column(String(36), ForeignKey("users.uuid"), nullable=False)
-    access_token = Column(String(256), unique=True, nullable=False)
+    token = Column(String(256), unique=True, nullable=False)
     device_id = Column(String(64), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
 
-    user = relationship("User", back_populates="access_tokens")
+    user = relationship("User", back_populates="tokens")
 
 class InviteCode(Base):
     __tablename__ = "invite_codes"

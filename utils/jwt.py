@@ -5,8 +5,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from utils.config import config
-from utils.db import getSession
-from utils.db.schemas import UserAccessToken
+from utils.db import get_session
+from utils.db.schemas import UserRefreshToken
 
 
 SECRET_KEY = config.secret_key
@@ -14,16 +14,29 @@ ALGORITHM = "HS256"
 
 security = HTTPBearer()
 
-def createJWTToken(uuid: str, device_id: str, expire_days: int) -> str:
+def create_refresh_token_payload(uuid: str, device_id: str) -> dict:
     payload = {
         "user_uuid": uuid,
         "device_id": device_id,
         "iat": datetime.now(timezone.utc),
-        "exp": datetime.now(timezone.utc) + timedelta(days=expire_days)
+        "exp": datetime.now(timezone.utc) + timedelta(days=14)
     }
+    return payload
+
+def create_access_token_payload(uuid: str, refresh_token_uuid:str, device_id: str) -> dict:
+    payload = {
+        "user_uuid": uuid,
+        "device_id": device_id,
+        "refresh_token_uuid": refresh_token_uuid,
+        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(timezone.utc) + timedelta(days=1)
+    }
+    return payload
+
+def create_jwt_token(payload:dict) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-def decodeJWTToken(token: str) -> dict:
+def decode_jwt_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
@@ -34,7 +47,7 @@ def decodeJWTToken(token: str) -> dict:
     except Exception as e:
         raise ValueError(f"An error occurred while decoding the token: {str(e)}")
 
-def verifyJWTTokenFromLocal(token: str) -> bool:
+def verify_jwt_token(token: str) -> bool:
     try:
         jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return True
@@ -45,28 +58,28 @@ def verifyJWTTokenFromLocal(token: str) -> bool:
     except Exception as e:
         raise ValueError(f"An error occurred while verifying the token: {str(e)}")
     
-async def verifyJWTTokenFromDatabase(token: str, db: AsyncSession) -> bool:
+async def verify_jwt_token_db(token: str, db: AsyncSession) -> bool:
     try:
-        user_uuid = decodeJWTToken(token)["user_uuid"]
+        user_uuid = decode_jwt_token(token)["user_uuid"]
     except Exception:
         return False
 
     try:
         result = await db.execute(
-            select(UserAccessToken).where(UserAccessToken.access_token == token)
+            select(UserRefreshToken).where(UserRefreshToken.token == token)
         )
-        access_token = result.scalar_one_or_none()
+        token = result.scalar_one_or_none()
         
         if (
-            access_token 
-            and access_token.user_uuid == user_uuid 
-            and access_token.expires_at > datetime.now(timezone.utc)
+            token 
+            and token.user_uuid == user_uuid 
+            and token.expires_at > datetime.now(timezone.utc)
         ):
             return True
         
-        if access_token and access_token.expires_at <= datetime.now(timezone.utc):
+        if token and token.expires_at <= datetime.now(timezone.utc):
             try:
-                await db.delete(access_token)
+                await db.delete(token)
                 await db.commit()
             except Exception:
                 pass
@@ -76,9 +89,9 @@ async def verifyJWTTokenFromDatabase(token: str, db: AsyncSession) -> bool:
 
     return False
 
-async def getUserUUID(credentials: HTTPAuthorizationCredentials = Depends(security), db: AsyncSession = Depends(getSession)) -> str:
-    if verifyJWTTokenFromLocal(credentials.credentials) and await verifyJWTTokenFromDatabase(credentials.credentials, db):
-        return decodeJWTToken(credentials.credentials)["user_uuid"]
+async def get_user_uuid(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    if verify_jwt_token(credentials.credentials):
+        return decode_jwt_token(credentials.credentials)["user_uuid"]
     else:
         raise HTTPException(
             status_code=401,

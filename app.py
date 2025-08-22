@@ -3,7 +3,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from contextlib import asynccontextmanager
 from utils.config import config
-from utils.db import testDB
+from utils.db import test_db
 from utils.log import logger
 from middleware.limiter import limiter
 
@@ -15,7 +15,7 @@ from routers.token import token
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        if await testDB():
+        if await test_db():
             logger.info("Database connection successful.")
             yield
     except Exception as e:
