@@ -1,6 +1,6 @@
 # AstroEyes Server Changelog
 
-## 1.0.0 & 1.0.1 (2025-08-17)
+## 1.0.0-alpha & 1.0.1-alpha (2025-08-17)
 ### 🆕 Add API endpoints 
 #### Authentication
 - `POST /auth/login` - User login
