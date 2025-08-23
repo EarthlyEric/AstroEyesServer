@@ -7,8 +7,6 @@ class Config:
         self.environment = os.getenv("ENVIRONMENT", "production")
         self.secret_key = str(os.getenv("SECRET_KEY"))
 
-        self.redis_host = os.getenv("CACHE_HOST", "localhost")
-        self.redis_port = int(os.getenv("CACHE_PORT", 6379))
         
         self.db_user = os.getenv("DB_USER", "astroeyes")
         self.db_password = os.getenv("DB_PASSWORD", "astroeyes")
